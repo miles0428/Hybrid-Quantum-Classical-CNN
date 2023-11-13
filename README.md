@@ -4,5 +4,5 @@ Hackthon NCCU 2023
 
 ```bash
 git clone https://github.com/miles0428/Hackthon-NCCU-2023.git
-pip install requirement.txt
+pip -r install requirement.txt
 ```

@@ -4,6 +4,8 @@ from qiskit import QuantumCircuit
 import torch.nn as nn
 from qiskit_machine_learning.neural_networks import SamplerQNN
 from qiskit_machine_learning.connectors import TorchConnector
+import torch.nn.functional as F
+
 
 # Define the quantum circuit
 
@@ -24,7 +26,7 @@ class Quanv2d(nn.Module):
         self.stride = stride
         self.input_channel = input_channel
         self.output_channel = output_channel
-        self.qnn = [TorchConnector(self.Sampler(num_weight,kernel_size * kernel_size, num_qubits)) for i in range(input_channel)]
+        self.qnn = nn.ModuleList([TorchConnector(self.Sampler(num_weight,kernel_size * kernel_size, num_qubits)) for i in range(input_channel)])
         #check if 2**num_qubits is greater than output_channel
         assert 2**num_qubits >= output_channel, '2**num_qubits must be greater than output_channel'
 
@@ -77,14 +79,36 @@ class Quanv2d(nn.Module):
         #for each input channel we have a quantum circuit to process it
         #and then we add them together
         #get the height and width of the output tensor
-        height = len(range(0,X.shape[2],self.stride))
-        width = len(range(0,X.shape[3],self.stride))
+        height = len(range(0,X.shape[2]-self.kernel_size+1,self.stride))
+        width = len(range(0,X.shape[3]-self.kernel_size+1,self.stride))
+        output = torch.zeros((X.shape[0],self.output_channel,height,width))
+        for i,qnn in enumerate(self.qnn):
+            unfolded_input = F.unfold(X[:, i, :, :], kernel_size=self.kernel_size, stride=self.stride)
+            unfolded_input = torch.reshape(unfolded_input,shape=(X.shape[0],self.kernel_size**2,-1))
+            qnn_output = qnn(unfolded_input.permute(2, 0, 1)).permute(1, 2, 0)
+            qnn_output = torch.reshape(qnn_output,shape=(X.shape[0],self.output_channel,height,width))
+            output += qnn_output
+        return output
+    
+    def forward2(self,X):
+        #use for loop to implement the convolution
+        '''
+        param
+            X: input tensor with shape (batch_size, input_channel, height, width)
+        return
+            X: output tensor with shape (batch_size, output_channel, height, width)
+        '''
+        #for each input channel we have a quantum circuit to process it
+        #and then we add them together
+        #get the height and width of the output tensor
+        height = len(range(0,X.shape[2]-self.kernel_size+1,self.stride))
+        width = len(range(0,X.shape[3]-self.kernel_size+1,self.stride))
         output = torch.zeros((X.shape[0],self.output_channel,height,width))
         for i in range(self.input_channel):
             #for each kernel we have a quantum circuit to process it
             output_temp = torch.zeros((X.shape[0],self.output_channel,height,width))
-            for jj,j in enumerate(range(0,X.shape[2]-self.kernel_size,self.stride)):
-                for kk,k in enumerate(range(0,X.shape[3]-self.kernel_size,self.stride)):
+            for jj,j in enumerate(range(0,X.shape[2]-self.kernel_size+1,self.stride)):
+                for kk,k in enumerate(range(0,X.shape[3]-self.kernel_size+1,self.stride)):
                     '''
                     #get the kernel
                     kernel = X[:,i,j:j+self.kernel_size,k:k+self.kernel_size]
@@ -104,18 +128,23 @@ class Quanv2d(nn.Module):
                     output_temp[:, :, jj, kk] = qnn_output
             #add the output of each input channel together
             output += output_temp
-        
-        #tset the output tensor with shape (batch_size, output_channel, height, width)
-
-        return output
+        return output            
     
     
         
 
 if __name__ == '__main__':
+    import time
     # Define the model
-    model = Quanv2d(3, 2, 3, 9,stride=2)
+    model = Quanv2d(3, 2, 3, 5,stride=1)
     X = torch.rand((5,3,16,16))
-    X=model.forward(X)
+    time0 = time.time()
+    X1=model.forward(X)
+    time1 = time.time()
+    X2 = model.forward2(X)
+    time2 = time.time()
+    assert torch.all(torch.eq(X1,X2)) ; 'forward function is wrong'
+    print(time1-time0,time2-time1)
     print(model)
-    print(X.shape)
+    print(X1.shape)
+    print(X1[0])

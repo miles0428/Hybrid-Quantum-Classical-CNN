@@ -1,32 +1,20 @@
+from typing import Iterator
 from qiskit.circuit import QuantumCircuit
 import torch
 import qiskit as qk
 from qiskit import QuantumCircuit
 import torch.nn as nn
 from qiskit_machine_learning.neural_networks import SamplerQNN
+from torch.nn.modules.module import Module
 from torch_connector import TorchConnector
 import torch.nn.functional as F
 import time
-
-# def get_result(job):
-#     return job.result()
-
-
-# class MyBackendSampler(BackendSampler):
-#     def __init__(self, backend):
-#         super().__init__(backend)
-#     def _run(self, circuits: tuple[QuantumCircuit, ...], parameter_values: tuple[tuple[float, ...], ...], **run_options):
-#         # super()._run(circuits, parameter_values, **run_options)
-#         return super()._run(circuits, parameter_values, **run_options)
-
-    
 
 
 class Quanv2d(nn.Module):
     
     '''
         A quantum convolutional layer
---------------------------------------------
         args
             input_channel: number of input channels
             output_channel: number of output channels
@@ -50,17 +38,17 @@ class Quanv2d(nn.Module):
         self.input_channel = input_channel
         self.output_channel = output_channel
         self.backend = qk.Aer.get_backend('qasm_simulator')
-        # self.sampler = MyBackendSampler(backend=self.backend)
-        self.qnn = TorchConnector(self.Sampler(num_weight,kernel_size * kernel_size * input_channel, num_qubits))
-        # self.qnn = self.Sampler(num_weight,kernel_size * kernel_size * input_channel, num_qubits)
-        #check if 2**num_qubits is greater than output_channel
+        self.num_weight = num_weight
+        self.num_input = kernel_size * kernel_size * input_channel
+        self.num_qubits = num_qubits
+        self.qnn = TorchConnector(self.Sampler())
         assert 2**num_qubits >= output_channel, '2**num_qubits must be greater than output_channel'
 
-    def Sampler(self, 
-                num_weights : int, 
-                num_input : int, 
+    def build_circuit(self,
+                num_weights : int,
+                num_input : int,
                 num_qubits : int = 3
-                ):
+                ) -> tuple[QuantumCircuit, Iterator[qk.circuit.Parameter], Iterator[qk.circuit.Parameter]]:
         '''
         build the quantum circuit
         param
@@ -69,6 +57,8 @@ class Quanv2d(nn.Module):
             num_qubits: number of qubits
         return
             qc: quantum circuit
+            weight_params: weight parameters
+            input_params: input parameters
         '''
         qc = QuantumCircuit(num_qubits)
         weight_params = [qk.circuit.Parameter('w{}'.format(i)) for i in range(num_weights)]
@@ -84,7 +74,20 @@ class Quanv2d(nn.Module):
             qc.rx(weight_params[i]*2*torch.pi, i%num_qubits)
         for i in range(num_qubits - 1):
             qc.cx(i, i + 1)
-
+        return qc, weight_params, input_params
+    
+    def Sampler(self) -> SamplerQNN:
+        '''
+        build the quantum circuit
+        param
+            num_weights: number of weights
+            num_input: number of inputs
+            num_qubits: number of qubits
+        return
+            qc: quantum circuit
+        '''
+        qc,weight_params,input_params = self.build_circuit(self.num_weight,self.num_input,3)
+        
         #use SamplerQNN to convert the quantum circuit to a PyTorch module
         qnn = SamplerQNN(
                         circuit = qc,

@@ -1,6 +1,6 @@
-# Hackthon-NCCU-2023
+# Hackathon-NCCU-2023
 
-Hackthon NCCU 2023
+Hackathon NCCU 2023
 
 ## Introduction
 

@@ -68,3 +68,14 @@ Before running the code in this repository, you will need to set up your environ
     ```
 
     This will install all the necessary packages, including PyTorch, qiskit, and matplotlib.
+
+## License Information
+
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for more information.
+
+## References
+
+- [HHybrid Quantum-Classical Convolutional Neural Networks](https://arxiv.org/pdf/1911.02998.pdf)
+- [Qiskit Documentation](https://qiskit.org/documentation/)
+- [PyTorch Documentation](https://pytorch.org/docs/stable/index.html)
+- [Github Copilot](https://thanksforthecode.com)

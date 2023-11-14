@@ -20,6 +20,7 @@ import numpy as np
 import qiskit_machine_learning.optionals as _optionals
 from qiskit_machine_learning import QiskitMachineLearningError
 from qiskit_machine_learning.neural_networks import NeuralNetwork
+import time
 
 if _optionals.HAS_TORCH:
     import torch

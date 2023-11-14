@@ -4,11 +4,19 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from Quanv2d import Quanv2d
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 class HybridQNN(nn.Module):
+    '''
+    A hybrid quantum convolutional neural network
+    constucted by a classical convolutional layer and a quantum convolutional layer
+    '''
     def __init__(self):
         super(HybridQNN, self).__init__()
         #build a full classical convolutional layer
+        '''
+        write the layer needed for the model
+        '''
         self.conv1 = nn.Conv2d(1, 1, 3)
         self.bn1 = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
@@ -20,7 +28,32 @@ class HybridQNN(nn.Module):
         self.flatten = nn.Flatten()
         self.linear = nn.Linear(32, 10)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor)-> torch.Tensor:
+        '''
+        forward function for the model
+        args
+            x: input tensor
+        return
+            x: output tensor
+        '''
+        '''
+        write the forward function for the model
+        default as 
+        HybridQNN(
+            (conv1): Conv2d(1, 1, kernel_size=(3, 3), stride=(1, 1))
+            (bn1): BatchNorm2d(1, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            (sigmoid): Sigmoid()
+            (maxpool1): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+            (conv2): Quanv2d(
+                (qnn): TorchConnector()
+            )
+            (bn2): BatchNorm2d(2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            (relu2): ReLU()
+            (maxpool2): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+            (flatten): Flatten(start_dim=1, end_dim=-1)
+            (linear): Linear(in_features=32, out_features=10, bias=True)
+        )
+        '''
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.sigmoid(x)
@@ -34,8 +67,25 @@ class HybridQNN(nn.Module):
 
 # Define the training function
 
-def train(device, train_loader, optimizer, criterion):
-    global model
+def train(
+        model:nn.modules,
+        device:torch.device, 
+        train_loader: DataLoader, 
+        optimizer:optim.Optimizer, 
+        criterion: nn.Module
+        )->tuple[float, float, nn.Module]:
+    '''
+    basic train function generate by github-copilot
+    args
+        device: device to train the model
+        train_loader: training data loader
+        optimizer: optimizer for the model
+        criterion: loss function
+    return
+        train_loss: loss of the training process
+        accuracy: accuracy of the training process
+        model: trained model
+    '''
     model.train()
     train_loss = 0
     correct = 0
@@ -43,22 +93,37 @@ def train(device, train_loader, optimizer, criterion):
     for batch_idx, (data, target) in enumerate(pbar):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        # print(data.shape)
         output = model(data)
-        # print(output.shape)
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-        pbar.set_description(desc=f'Train Loss={train_loss} Batch_id={batch_idx} Accuracy={correct / len(train_loader.dataset):.2f}')
+        pbar.set_description(desc=f'Train Loss={train_loss}'+
+                                  f'Batch_id={batch_idx}'+
+                                  f'Accuracy={correct / len(train_loader.dataset):.2f}')
     train_loss /= len(train_loader.dataset)
     accuracy = 100. * correct / len(train_loader.dataset)
-    return train_loss, accuracy
+    return train_loss, accuracy, model  
 
 # Define the test function
-def test(model, device, test_loader, criterion):
+def test(
+        model:nn.modules, 
+        device:torch.device, 
+        test_loader:DataLoader, 
+        criterion:nn.Module
+        )->tuple[float, float]:
+    '''
+    basic test function generate by github-copilot
+    args
+        device: device to train the model
+        test_loader: test data loader
+        criterion: loss function
+    return
+        test_loss: loss of the test process
+        accuracy: accuracy of the test process
+    '''
     model.eval()
     test_loss = 0
     correct = 0
@@ -74,12 +139,11 @@ def test(model, device, test_loader, criterion):
     accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, accuracy
 
-# Set the device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Define the batch size and number of epochs
+#some hyperparameters
+legnth = 500
 batch_size = 25
 epochs = 100
+model_path = 'model.pt'
 
 # Load the MNIST dataset
 train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
@@ -91,33 +155,33 @@ test_dataset = datasets.MNIST('./data', train=False, download=True, transform=tr
     transforms.Normalize((0.1307,), (0.3081,))
 ]))
 
-#load only 50 data
-legnth = 100
+#load data
 train_dataset.data = train_dataset.data[:legnth]
 train_dataset.targets = train_dataset.targets[:legnth]
-test_dataset.data = test_dataset.data[:legnth]
-test_dataset.targets = test_dataset.targets[:legnth]
+test_dataset.data = test_dataset.data[:legnth/2]
+test_dataset.targets = test_dataset.targets[:legnth/2]
 
 # Create the data loaders
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-print(f'length of dataset :{len(train_loader.dataset)}')
+
+# Set the device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Initialize the model and move it to the device
 model = HybridQNN().to(device)
 
 # Define the optimizer and loss function
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 criterion = nn.CrossEntropyLoss()
-print(model)
-print(model.parameters())
+
+
 # Train the model
 for epoch in range(1, epochs + 1):
     print(f'epoch : {epoch}')
-    train(device, train_loader, optimizer, criterion)
-    test_loss, accuracy = test(model, device, test_loader, criterion)
+    train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
+    test_loss , accuracy           = test(model, device, test_loader, criterion)
     print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
 
-
-
-
+#save the model for future use
+torch.save(model.state_dict(), 'model.pt')
 

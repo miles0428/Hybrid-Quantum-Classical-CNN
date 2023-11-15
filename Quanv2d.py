@@ -9,6 +9,9 @@ from torch.nn.modules.module import Module
 from torch_connector import TorchConnector
 import torch.nn.functional as F
 import time
+from typing import List, Union
+
+
 
 
 class Quanv2d(nn.Module):
@@ -37,7 +40,6 @@ class Quanv2d(nn.Module):
         self.stride = stride
         self.input_channel = input_channel
         self.output_channel = output_channel
-        self.backend = qk.Aer.get_backend('qasm_simulator')
         self.num_weight = num_weight
         self.num_input = kernel_size * kernel_size * input_channel
         self.num_qubits = num_qubits
@@ -98,7 +100,7 @@ class Quanv2d(nn.Module):
                          )
         return qnn
 
-    def interpret(self, X: int|list[int]) -> int|list[int]:
+    def interpret(self, X: Union[List[int],int]) -> Union[int,List[int]]:
         '''
         interpret the output of the quantum circuit using the modulo function
         this function is used in SamplerQNN
@@ -107,7 +109,7 @@ class Quanv2d(nn.Module):
         return
             the remainder of the output divided by the number of output channels
         '''
-        return X%self.output_channel
+        return X % self.output_channel
 
     def forward(self, X : torch.Tensor) -> torch.Tensor:
         '''

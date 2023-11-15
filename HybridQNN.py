@@ -5,7 +5,38 @@ from torchvision import datasets, transforms
 from Quanv2d import Quanv2d
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import os
 
+
+from Quanv2d import Quanv2d
+from qiskit import QuantumCircuit
+from qiskit.circuit import Parameter
+
+class MyQuanv2d(Quanv2d):
+    def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
+        super().__init__(input_channel, output_channel, num_qubits, num_weight, kernel_size, stride)
+    def build_circuit(self,num_weights : int,num_input : int,num_qubits : int = 3):
+        qc = QuantumCircuit(num_qubits)
+        weight_params = [Parameter('w{}'.format(i)) for i in range(num_weights)]
+        input_params = [Parameter('x{}'.format(i)) for i in range(num_input)]
+        for i in range(num_qubits):
+            qc.h(i)
+        for i in range(num_input):
+            if i%num_qubits == 0 :
+                if i != 0:
+                    for j in range(num_qubits):
+                        qc.cx(j, (j + 1)%num_qubits)
+            qc.ry(input_params[i]*2*torch.pi, i%num_qubits)
+        for i in range(num_weights):
+            if i%num_qubits == 0:
+                for j in range(num_qubits):
+                    qc.cx(j, (j + 1)%num_qubits)
+            qc.rx(weight_params[i]*2*torch.pi, i%num_qubits)
+        
+        print(qc)
+        return qc, weight_params, input_params
+    
 class HybridQNN(nn.Module):
     '''
     A hybrid quantum convolutional neural network
@@ -21,12 +52,13 @@ class HybridQNN(nn.Module):
         self.bn1 = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
         self.maxpool1 = nn.MaxPool2d(2)
-        self.conv2 = Quanv2d(1, 2, 2, 3,kernel_size=4,stride=3)
+        self.conv2 = MyQuanv2d(1, 2, 3, 6,kernel_size=3,stride=3)
         self.bn2 = nn.BatchNorm2d(2)
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
         self.flatten = nn.Flatten()
         self.linear = nn.Linear(32, 10)
+        # self.linear2 = nn.Linear(50, 10)
 
     def forward(self, x: torch.Tensor)-> torch.Tensor:
         '''
@@ -80,7 +112,7 @@ def train(
         device: device to train the model
         train_loader: training data loader
         optimizer: optimizer for the model
-        criterion: loss function
+        criterion: loss function    
     return
         train_loss: loss of the training process
         accuracy: accuracy of the training process
@@ -100,10 +132,11 @@ def train(
         train_loss += loss.item()
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
-        pbar.set_description(desc=f'Train Loss={train_loss}'+
-                                  f'Batch_id={batch_idx}'+
-                                  f'Accuracy={correct / len(train_loader.dataset):.2f}')
-    train_loss /= len(train_loader.dataset)
+        pbar.set_description(desc=f'Train Loss={train_loss/len(train_loader.dataset ):.4f}'+
+                                  f'|Batch_id={batch_idx}'+
+                                  f'|Accuracy={correct / len(train_loader.dataset):.2f}')
+    # train_loss /= len(train_loader.dataset)
+    train_loss /= len(train_loader)
     accuracy = 100. * correct / len(train_loader.dataset)
     return train_loss, accuracy, model  
 
@@ -140,10 +173,17 @@ def test(
     return test_loss, accuracy
 
 #some hyperparameters
-legnth = 500
+legnth = 250
 batch_size = 25
-epochs = 100
-model_path = 'model.pt'
+epochs = 30
+model_name = 'HybridQNN copy'
+model_path = 'model copy.pt'
+learning_rate = 0.01
+mode = 'old_model'
+
+#make directory
+os.makedirs(f'data/{model_name}',exist_ok=True)
+
 
 # Load the MNIST dataset
 train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
@@ -158,8 +198,8 @@ test_dataset = datasets.MNIST('./data', train=False, download=True, transform=tr
 #load data
 train_dataset.data = train_dataset.data[:legnth]
 train_dataset.targets = train_dataset.targets[:legnth]
-test_dataset.data = test_dataset.data[:legnth/2]
-test_dataset.targets = test_dataset.targets[:legnth/2]
+test_dataset.data = test_dataset.data[:int(legnth/2)]
+test_dataset.targets = test_dataset.targets[:int(legnth/2)]
 
 # Create the data loaders
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -169,19 +209,50 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, s
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Initialize the model and move it to the device
 model = HybridQNN().to(device)
+if mode == 'old_model':
+    model.load_state_dict(torch.load(f'data/{model_name}/{model_path}'))
+
+print(model)
 
 # Define the optimizer and loss function
-optimizer = optim.Adam(model.parameters(), lr=0.01)
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 criterion = nn.CrossEntropyLoss()
 
+
+#record the loss and accuracy for each epoch
+results = {}
+results['train_loss'] = []
+results['train_accu'] = []
+results['test_loss'] = []
+results['test_accu'] = []
 
 # Train the model
 for epoch in range(1, epochs + 1):
     print(f'epoch : {epoch}')
     train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
     test_loss , accuracy           = test(model, device, test_loader, criterion)
+    results['train_loss'].append(train_loss)
+    results['train_accu'].append(train_accu)
+    results['test_loss'].append(test_loss)
+    results['test_accu'].append(accuracy)
+
     print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
 
 #save the model for future use
-torch.save(model.state_dict(), 'model.pt')
+torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
+
+#plot the loss and accuracy
+plt.plot(results['train_loss'],label='train_loss')
+plt.plot(results['test_loss'],label='test_loss')
+plt.title('Loss')
+plt.legend()
+plt.savefig(f'data/{model_name}/loss.png')
+plt.clf()
+plt.plot(results['train_accu'],label='train_accu')
+plt.plot(results['test_accu'],label='test_accu')
+plt.title('Accuracy')
+plt.legend()
+plt.savefig(f'data/{model_name}/accuracy.png')
+plt.clf()
+
 

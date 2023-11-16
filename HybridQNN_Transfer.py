@@ -13,6 +13,7 @@ import random
 import itertools
 import numpy as np
 from typing import Union, List, Iterator
+from HybridQNN import HybridQNN
 
 class MyQuanv2d(Quanv2d):
     def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
@@ -58,7 +59,7 @@ class MyQuanv2d(Quanv2d):
         print(qc)
         return qc, weight_params, input_params
     
-class HybridQNN(nn.Module):
+class HybridQNN_T(nn.Module):
     '''
     A hybrid quantum convolutional neural network
     constucted by a classical convolutional layer and a quantum convolutional layer
@@ -73,7 +74,7 @@ class HybridQNN(nn.Module):
         self.bn1 = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
         self.maxpool1 = nn.MaxPool2d(2)
-        self.conv2 = MyQuanv2d(1, 2, 3, 9,kernel_size=3,stride=3)
+        self.conv2 = MyQuanv2d(1, 2, 3, 9,kernel_size=3,stride=2)
         self.bn2 = nn.BatchNorm2d(2)
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
@@ -281,11 +282,12 @@ def Train_Hybrid_QNN(Net : nn.Module,
     defaule_kwargs = {'legnth':500,
                       'batch_size':50,
                       'epochs':10,
-                      'model_name':'HybridQNN',
+                      'model_name':'HybridQNN_T',
                       'model_path':'model.pt',
                       'learning_rate':0.01,
                       'mode':'new_model',
-                      'seed':0}
+                      'seed':0,
+                      'old_model_name':'HybridQNN'}
     
     for key in kwargs:
         if key in defaule_kwargs:
@@ -389,29 +391,37 @@ def Train_Hybrid_QNN(Net : nn.Module,
     plt.savefig(f'data/{model_name}/accuracy.png')
     plt.clf()
 
+model_old = HybridQNN()
+model_old.load_state_dict(torch.load(f'data/HybridQNN/model.pt'))
+#read old model's weights
+old_weight = []
+for name, param in model_old.named_parameters():
+    print(name)
+    if 'weight' in name:
+        old_weight.append(param.data)
 
-if __name__ == '__main__':
-    #some hyperparameters
-    legnth = 500
-    batch_size = 50
-    epochs = 0
-    model_name = 'HybridQNN'
-    model_path = 'model.pt'
-    learning_rate = 0.01
-    mode = 'old_model'
-    seed = 0
-    # Load the MNIST dataset
-    train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ]))
-    test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ]))
-    optimizer = optim.Adam
-    criterion = nn.CrossEntropyLoss()
-    Net = HybridQNN
-    Train_Hybrid_QNN(Net,optimizer,criterion,train_dataset,test_dataset,
-                     legnth=legnth,batch_size=batch_size,epochs=epochs,
-                     model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed)
+# if __name__ == '__main__':
+#     #some hyperparameters
+#     legnth = 500
+#     batch_size = 50
+#     epochs = 0
+#     model_name = 'HybridQNN'
+#     model_path = 'model.pt'
+#     learning_rate = 0.01
+#     mode = 'old_model'
+#     seed = 0
+#     # Load the MNIST dataset
+#     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
+#         transforms.ToTensor(),
+#         transforms.Normalize((0.1307,), (0.3081,))
+#     ]))
+#     test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
+#         transforms.ToTensor(),
+#         transforms.Normalize((0.1307,), (0.3081,))
+#     ]))
+#     optimizer = optim.Adam
+#     criterion = nn.CrossEntropyLoss()
+#     Net = HybridQNN
+#     Train_Hybrid_QNN(Net,optimizer,criterion,train_dataset,test_dataset,
+#                      legnth=legnth,batch_size=batch_size,epochs=epochs,
+#                      model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed)

@@ -12,6 +12,7 @@ import os
 from Quanv2d import Quanv2d
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
+from qiskit.circuit.library import U3Gate
 
 class MyQuanv2d(Quanv2d):
     def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
@@ -22,18 +23,38 @@ class MyQuanv2d(Quanv2d):
         input_params = [Parameter('x{}'.format(i)) for i in range(num_input)]
         for i in range(num_qubits):
             qc.h(i)
-        for i in range(num_input):
-            if i%num_qubits == 0 :
-                if i != 0:
-                    for j in range(num_qubits):
-                        qc.cx(j, (j + 1)%num_qubits)
-            qc.ry(input_params[i]*2*torch.pi, i%num_qubits)
-        for i in range(num_weights):
-            if i%num_qubits == 0:
+        q_index = 0
+        for i in range(0,num_input,3):
+            qc.rz(input_params[i],q_index)
+            if i+1 < num_input:
+                qc.ry(input_params[i+1],q_index)
+            if i+2 < num_input:
+                qc.rz(input_params[i+2],q_index)
+            q_index += 1
+            if q_index == num_qubits:
+                q_index = 0
                 for j in range(num_qubits):
                     qc.cx(j, (j + 1)%num_qubits)
-            qc.rx(weight_params[i]*2*torch.pi, i%num_qubits)
+
+        for i in range(0,num_weights,3):
+            #check if i+1 and i+2 is out of range
+            qc.rz(weight_params[i],q_index)
+            if i+1 < num_weights:
+                qc.ry(weight_params[i+1],q_index)
+            if i+2 < num_weights:
+                qc.rz(weight_params[i+2],q_index)
+            q_index += 1
+            if q_index == num_qubits:
+                q_index = 0
+                for j in range(num_qubits):
+                    qc.cx(j, (j + 1)%num_qubits)
         
+        if q_index != 0:
+            for i in range(q_index,num_qubits):
+                qc.cx(i, (i + 1)%num_qubits)
+        # #entangle the qubits
+        # for i in range(num_qubits):
+        #     qc.cx(i, (i + 1)%num_qubits)
         print(qc)
         return qc, weight_params, input_params
     
@@ -52,7 +73,7 @@ class HybridQNN(nn.Module):
         self.bn1 = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
         self.maxpool1 = nn.MaxPool2d(2)
-        self.conv2 = MyQuanv2d(1, 2, 3, 6,kernel_size=3,stride=3)
+        self.conv2 = MyQuanv2d(1, 2, 3, 9,kernel_size=3,stride=3)
         self.bn2 = nn.BatchNorm2d(2)
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
@@ -173,13 +194,13 @@ def test(
     return test_loss, accuracy
 
 #some hyperparameters
-legnth = 250
-batch_size = 25
+legnth = 500
+batch_size = 50
 epochs = 30
-model_name = 'HybridQNN copy'
-model_path = 'model copy.pt'
+model_name = 'HybridQNN'
+model_path = 'model.pt'
 learning_rate = 0.01
-mode = 'old_model'
+mode = 'new_model'
 
 #make directory
 os.makedirs(f'data/{model_name}',exist_ok=True)
@@ -208,9 +229,14 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, s
 # Set the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Initialize the model and move it to the device
+
 model = HybridQNN().to(device)
 if mode == 'old_model':
     model.load_state_dict(torch.load(f'data/{model_name}/{model_path}'))
+    #load results
+    results = torch.load(f'data/{model_name}/results.pt')
+else:
+    results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[]}
 
 print(model)
 
@@ -220,12 +246,9 @@ criterion = nn.CrossEntropyLoss()
 
 
 #record the loss and accuracy for each epoch
-results = {}
-results['train_loss'] = []
-results['train_accu'] = []
-results['test_loss'] = []
-results['test_accu'] = []
 
+best_loss = 1e5
+best_model = None
 # Train the model
 for epoch in range(1, epochs + 1):
     print(f'epoch : {epoch}')
@@ -235,7 +258,13 @@ for epoch in range(1, epochs + 1):
     results['train_accu'].append(train_accu)
     results['test_loss'].append(test_loss)
     results['test_accu'].append(accuracy)
-
+    if test_loss < best_loss:
+        best_loss = test_loss
+        best_model = model
+        #save the model for future use
+        torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
+    #save results
+    torch.save(results,f'data/{model_name}/results.pt')
     print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
 
 #save the model for future use

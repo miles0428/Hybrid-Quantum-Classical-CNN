@@ -7,12 +7,9 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import os
-
-
-from Quanv2d import Quanv2d
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
-from qiskit.circuit.library import U3Gate
+import random
 
 class MyQuanv2d(Quanv2d):
     def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
@@ -157,7 +154,7 @@ def train(
                                   f'|Batch_id={batch_idx}'+
                                   f'|Accuracy={correct / len(train_loader.dataset):.2f}')
     # train_loss /= len(train_loader.dataset)
-    train_loss /= len(train_loader)
+    train_loss /= len(train_loader.dataset)
     accuracy = 100. * correct / len(train_loader.dataset)
     return train_loss, accuracy, model  
 
@@ -193,92 +190,156 @@ def test(
     accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, accuracy
 
-#some hyperparameters
-legnth = 500
-batch_size = 50
-epochs = 10
-model_name = 'HybridQNN'
-model_path = 'model.pt'
-learning_rate = 0.01
-mode = 'new_model'
-
-#make directory
-os.makedirs(f'data/{model_name}',exist_ok=True)
 
 
-# Load the MNIST dataset
-train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-]))
-test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-]))
 
-#load data
-train_dataset.data = train_dataset.data[:legnth]
-train_dataset.targets = train_dataset.targets[:legnth]
-test_dataset.data = test_dataset.data[:int(legnth/2)]
-test_dataset.targets = test_dataset.targets[:int(legnth/2)]
+def Train_Hybrid_QNN(Net : nn.Module,
+                     optimizer : optim.Optimizer,
+                     criterion : nn.Module,
+                     train_dataset : datasets,
+                     test_dataset : datasets,
+                     **kwargs) -> None:
+    '''
+    Train a HybridQNN model
+    args
+        Net: HybridQNN
+        optimizer: optimizer for the model
+        criterion: loss function
+        train_dataset: training dataset
+        test_dataset: test dataset
+        kwargs: hyperparameters
+    return
+        None
+    Save
+        model: trained model (to data/{model_name}/{model_path})
+        results: results of the training process (to data/{model_name}/results.pt)
+        accuracy.png: plot of the accuracy (to data/{model_name}/accuracy.png)
+        loss.png: plot of the loss (to data/{model_name}/loss.png)
+    '''
+    defaule_kwargs = {'legnth':500,
+                      'batch_size':50,
+                      'epochs':10,
+                      'model_name':'HybridQNN',
+                      'model_path':'model.pt',
+                      'learning_rate':0.01,
+                      'mode':'new_model',
+                      'seed':0}
+    
+    for key in kwargs:
+        if key in defaule_kwargs:
+            defaule_kwargs[key] = kwargs[key]
+        else:
+            raise ValueError(f'key {key} not in defaule_kwargs')
+        
+    legnth = defaule_kwargs['legnth']
+    batch_size = defaule_kwargs['batch_size']
+    epochs = defaule_kwargs['epochs']
+    model_name = defaule_kwargs['model_name']
+    model_path = defaule_kwargs['model_path']
+    learning_rate = defaule_kwargs['learning_rate']
+    mode = defaule_kwargs['mode']
 
-# Create the data loaders
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    torch.manual_seed(seed)
+    #make directory
+    os.makedirs(f'data/{model_name}',exist_ok=True)
+    #load data
+    train_dataset.data = train_dataset.data[:legnth]
+    train_dataset.targets = train_dataset.targets[:legnth]
+    test_dataset.data = test_dataset.data[:int(legnth/2)]
+    test_dataset.targets = test_dataset.targets[:int(legnth/2)]
 
-# Set the device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Initialize the model and move it to the device
+    # Create the data loaders
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-model = HybridQNN().to(device)
-if mode == 'old_model':
-    model.load_state_dict(torch.load(f'data/{model_name}/{model_path}'))
-    #load results
-    results = torch.load(f'data/{model_name}/results.pt')
-else:
-    results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[],'best_loss':1e5}
+    # Set the device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Initialize the model and move it to the device
 
-print(model)
+    model = Net().to(device)
+    if mode == 'old_model':
+        model.load_state_dict(torch.load(f'data/{model_name}/{model_path}'))
+        #load results
+        results = torch.load(f'data/{model_name}/results.pt')
+    else:
+        results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[],'best_loss':1e5}
+        #check if the model exists
+        if os.path.exists(f'data/{model_name}/{model_path}'):
+            check = input('model exists, press enter to overwrite(y/n)')
+            if check == 'n' or check == 'N':
+                build = input('build a new model?(y/n)')
+                if build == 'n' or build == 'N':
+                    raise ValueError('model exists')
+                elif build == 'y' or build == 'Y':
+                    model_name = f'{model_name}_{random.randint(0,100)}'
+                    os.makedirs(f'data/{model_name}',exist_ok=True)
+                    print(f'new model name: {model_name}')
+                else:
+                    raise ValueError('invalid input')
+            elif check == 'y' or check == 'Y':
+                pass
+            else:
+                raise ValueError('invalid input')
 
-# Define the optimizer and loss function
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.CrossEntropyLoss()
+    print(model)
+
+    # Define the optimizer and loss function
+    optimizer = optimizer(model.parameters(), lr=learning_rate)
+
+    # Train the model
+    for epoch in range(1, epochs + 1):
+        print(f'epoch : {epoch}')
+        train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
+        test_loss , accuracy           = test(model, device, test_loader, criterion)
+        results['train_loss'].append(train_loss)
+        results['train_accu'].append(train_accu)
+        results['test_loss'].append(test_loss)
+        results['test_accu'].append(accuracy)
+        if test_loss < results['best_loss']:
+            results['best_loss'] = test_loss
+            #save the model for future use
+            torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
+        #save results
+        torch.save(results,f'data/{model_name}/results.pt')
+        print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
+
+    #plot the loss and accuracy
+    plt.plot(results['train_loss'],label='train_loss')
+    plt.plot(results['test_loss'],label='test_loss')
+    plt.title('Loss')
+    plt.legend()
+    plt.savefig(f'data/{model_name}/loss.png')
+    plt.clf()
+    plt.plot(results['train_accu'],label='train_accu')
+    plt.plot(results['test_accu'],label='test_accu')
+    plt.title('Accuracy')
+    plt.legend()
+    plt.savefig(f'data/{model_name}/accuracy.png')
+    plt.clf()
 
 
-#record the loss and accuracy for each epoch
-
-# Train the model
-for epoch in range(1, epochs + 1):
-    print(f'epoch : {epoch}')
-    train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
-    test_loss , accuracy           = test(model, device, test_loader, criterion)
-    results['train_loss'].append(train_loss)
-    results['train_accu'].append(train_accu)
-    results['test_loss'].append(test_loss)
-    results['test_accu'].append(accuracy)
-    if test_loss < results['best_loss']:
-        results['best_loss'] = test_loss
-        #save the model for future use
-        torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
-    #save results
-    torch.save(results,f'data/{model_name}/results.pt')
-    print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
-
-#save the model for future use
-torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
-
-#plot the loss and accuracy
-plt.plot(results['train_loss'],label='train_loss')
-plt.plot(results['test_loss'],label='test_loss')
-plt.title('Loss')
-plt.legend()
-plt.savefig(f'data/{model_name}/loss.png')
-plt.clf()
-plt.plot(results['train_accu'],label='train_accu')
-plt.plot(results['test_accu'],label='test_accu')
-plt.title('Accuracy')
-plt.legend()
-plt.savefig(f'data/{model_name}/accuracy.png')
-plt.clf()
-
-
+if __name__ == '__main__':
+    #some hyperparameters
+    legnth = 500
+    batch_size = 50
+    epochs = 10
+    model_name = 'HybridQNN'
+    model_path = 'model.pt'
+    learning_rate = 0.01
+    mode = 'old_model'
+    seed = 0
+    # Load the MNIST dataset
+    train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ]))
+    test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ]))
+    optimizer = optim.Adam
+    criterion = nn.CrossEntropyLoss()
+    Net = HybridQNN
+    Train_Hybrid_QNN(Net,optimizer,criterion,train_dataset,test_dataset,
+                     legnth=legnth,batch_size=batch_size,epochs=epochs,
+                     model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed)

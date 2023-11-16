@@ -1,21 +1,18 @@
-from typing import Iterator
-from qiskit.circuit import QuantumCircuit
 import torch
-import qiskit as qk
-from qiskit import QuantumCircuit
 import torch.nn as nn
-from qiskit_machine_learning.neural_networks import SamplerQNN
-from torch.nn.modules.module import Module
-from torch_connector import TorchConnector
 import torch.nn.functional as F
 import time
-from typing import List, Union
 
+from typing import  Union, List, Iterator
 
+import qiskit as qk
+from qiskit import QuantumCircuit
+from qiskit_machine_learning.neural_networks import SamplerQNN
+from torch_connector import TorchConnector
 
 
 class Quanv2d(nn.Module):
-    
+
     '''
         A quantum convolutional layer
         args

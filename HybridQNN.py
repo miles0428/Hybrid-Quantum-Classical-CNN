@@ -10,6 +10,8 @@ import os
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
 import random
+import itertools
+import numpy as np
 
 class MyQuanv2d(Quanv2d):
     def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
@@ -190,7 +192,53 @@ def test(
     accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, accuracy
 
+def Confusion_Matrix(model : nn.Module,
+                    device : torch.device,
+                    test_loader : DataLoader) -> torch.Tensor:
+        '''
+        generate the confusion matrix of the model
+        args
+            model: trained model
+            device: device to train the model
+            test_loader: test data loader
+        return
+            confusion_matrix: confusion matrix of the model
+        '''
+        model.eval()
+        confusion_matrix = torch.zeros(10,10)
+        with torch.no_grad():
+            for data, target in test_loader:
+                data, target = data.to(device), target.to(device)
+                output = model(data).argmax(dim=1, keepdim=True)
+                for i in range(len(target)):
+                    confusion_matrix[target[i]][output[i]] += 1
+        return confusion_matrix
 
+def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes)
+    plt.yticks(tick_marks, classes)
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, round(cm[i, j], 2),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
 
 
 def Train_Hybrid_QNN(Net : nn.Module,
@@ -287,21 +335,31 @@ def Train_Hybrid_QNN(Net : nn.Module,
     optimizer = optimizer(model.parameters(), lr=learning_rate)
 
     # Train the model
-    for epoch in range(1, epochs + 1):
-        print(f'epoch : {epoch}')
-        train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
-        test_loss , accuracy           = test(model, device, test_loader, criterion)
-        results['train_loss'].append(train_loss)
-        results['train_accu'].append(train_accu)
-        results['test_loss'].append(test_loss)
-        results['test_accu'].append(accuracy)
-        if test_loss < results['best_loss']:
-            results['best_loss'] = test_loss
-            #save the model for future use
-            torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
-        #save results
-        torch.save(results,f'data/{model_name}/results.pt')
-        print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
+    if epochs > 0:
+        for epoch in range(1, epochs + 1):
+            print(f'epoch : {epoch}')
+            train_loss, train_accu, model = train(model,device, train_loader, optimizer, criterion)
+            test_loss , accuracy           = test(model, device, test_loader, criterion)
+            results['train_loss'].append(train_loss)
+            results['train_accu'].append(train_accu)
+            results['test_loss'].append(test_loss)
+            results['test_accu'].append(accuracy)
+            if test_loss < results['best_loss']:
+                results['best_loss'] = test_loss
+                #save the model for future use
+                torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
+            #save results
+            torch.save(results,f'data/{model_name}/results.pt')
+            print('Epoch: {} Test Loss: {:.4f} Accuracy: {:.2f}%'.format(epoch, test_loss, accuracy))
+    elif epochs == 0:
+        pass
+    else:
+        raise ValueError('invalid epochs')
+
+    CM = Confusion_Matrix(model,device,test_loader)
+    plot_confusion_matrix(CM.numpy(),classes=range(CM.shape[0]),normalize=True)
+    plt.savefig(f'data/{model_name}/confusion_matrix.png')
+    plt.clf()
 
     #plot the loss and accuracy
     plt.plot(results['train_loss'],label='train_loss')
@@ -322,7 +380,7 @@ if __name__ == '__main__':
     #some hyperparameters
     legnth = 500
     batch_size = 50
-    epochs = 10
+    epochs = 0
     model_name = 'HybridQNN'
     model_path = 'model.pt'
     learning_rate = 0.01

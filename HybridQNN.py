@@ -360,7 +360,7 @@ def Train_Hybrid_QNN(Net : nn.Module,
     plot_confusion_matrix(CM.numpy(),classes=range(CM.shape[0]),normalize=True)
     plt.savefig(f'data/{model_name}/confusion_matrix.png')
     plt.clf()
-
+    plt.figure(figsize=(5,5))
     #plot the loss and accuracy
     plt.plot(results['train_loss'],label='train_loss')
     plt.plot(results['test_loss'],label='test_loss')

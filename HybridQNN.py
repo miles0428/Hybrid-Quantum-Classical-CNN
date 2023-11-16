@@ -196,7 +196,7 @@ def test(
 #some hyperparameters
 legnth = 500
 batch_size = 50
-epochs = 30
+epochs = 10
 model_name = 'HybridQNN'
 model_path = 'model.pt'
 learning_rate = 0.01
@@ -236,7 +236,7 @@ if mode == 'old_model':
     #load results
     results = torch.load(f'data/{model_name}/results.pt')
 else:
-    results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[]}
+    results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[],'best_loss':1e5}
 
 print(model)
 
@@ -247,8 +247,6 @@ criterion = nn.CrossEntropyLoss()
 
 #record the loss and accuracy for each epoch
 
-best_loss = 1e5
-best_model = None
 # Train the model
 for epoch in range(1, epochs + 1):
     print(f'epoch : {epoch}')
@@ -258,9 +256,8 @@ for epoch in range(1, epochs + 1):
     results['train_accu'].append(train_accu)
     results['test_loss'].append(test_loss)
     results['test_accu'].append(accuracy)
-    if test_loss < best_loss:
-        best_loss = test_loss
-        best_model = model
+    if test_loss < results['best_loss']:
+        results['best_loss'] = test_loss
         #save the model for future use
         torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
     #save results

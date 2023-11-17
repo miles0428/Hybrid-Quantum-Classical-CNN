@@ -1,4 +1,9 @@
 # Hackathon-NCCU-2023
+![Static Badge](https://img.shields.io/badge/Python-blue)
+![Static Badge](https://img.shields.io/badge/PyTorch-red)
+![Static Badge](https://img.shields.io/badge/Qiskit-orange)
+![Static Badge](https://img.shields.io/badge/QML-yellow)
+![Static Badge](https://img.shields.io/badge/Quantum_Convolution-yellow)
 
 Hackathon NCCU 2023
 
@@ -144,12 +149,25 @@ class CustomQuanv2d(Quanv2d):
     - Transfer learning shows promise in improving QCNN performance, but further optimization is needed, especially on the test set.
 
 ### Final result (in MNIST)
-|||
-| ------------- | :-------------: |
-| Accuracy for both methods before transfer learning | ![accu](figure/accuracy.png) |
-| Loss for both methods before transfer learning |![loss](figure/loss.png)|
-| Accuracy for both methods with transfer learning  | ![accu](figure/accuracy_T.png) |
-| Loss for both methods with transfer learning |![loss](figure/loss_T.png)|
+<table>
+  <tr>
+    <th></th>
+    <th>Before Transfer Learning</th>
+    <th>With Transfer Learning</th>
+  </tr>
+  <tr>
+    <td align="center">Accuracy</td>
+    <td align="center"><img src="figure/accuracy.png" alt="Accuracy before transfer learning"></td>
+    <td align="center"><img src="figure/accuracy_T.png" alt="Accuracy with transfer learning"></td>
+  </tr>
+  <tr>
+    <td align="center">Loss</td>
+    <td align="center"><img src="figure/loss.png" alt="Loss before transfer learning"></td>
+    <td align="center"><img src="figure/loss_T.png" alt="Loss with transfer learning"></td>
+  </tr>
+</table>
+
+
 
 
 

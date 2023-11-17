@@ -2,16 +2,18 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
+from Quanv2d import Quanv2d
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import os
+from qiskit import QuantumCircuit
+from qiskit.circuit import Parameter
 import random
 import itertools
 import numpy as np
 from typing import Union, List, Iterator
-from HybridQNN import HybridQNN, MyQuanv2d
-
+from CNN import HybridQNN, MyQuanv2d
 
     
 class HybridQNN_T(nn.Module):
@@ -29,7 +31,7 @@ class HybridQNN_T(nn.Module):
         self.bn1 = nn.BatchNorm2d(1).eval()
         self.sigmoid = nn.Sigmoid().eval()
         self.maxpool1 = nn.MaxPool2d(2).eval()
-        self.conv2 = MyQuanv2d(1, 2, 3, 9,kernel_size=3,stride=2).eval()
+        self.conv2 = nn.Conv2d(1, 2, 3, 2).eval()
         self.bn2 = nn.BatchNorm2d(2)
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
@@ -387,12 +389,12 @@ if __name__ == '__main__':
     legnth = 500
     batch_size = 50
     epochs = 10
-    model_name = 'HybridQNN_T'
+    model_name = 'CNN_T'
     model_path = 'model.pt'
     learning_rate = 0.01
-    mode = 'old_model'
+    mode = 'new_model'
     seed = 0
-    old_model_name = 'HybridQNN'
+    old_model_name = 'CNN'
     # Load the MNIST dataset
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
         transforms.ToTensor(),

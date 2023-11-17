@@ -2,39 +2,83 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
+from Quanv2d import Quanv2d
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import os
+from qiskit import QuantumCircuit
+from qiskit.circuit import Parameter
 import random
 import itertools
 import numpy as np
 from typing import Union, List, Iterator
-from HybridQNN import HybridQNN, MyQuanv2d
 
+class MyQuanv2d(Quanv2d):
+    def __init__(self,input_channel,output_channel,num_qubits,num_weight,kernel_size = 3,stride = 1):
+        super().__init__(input_channel, output_channel, num_qubits, num_weight, kernel_size, stride)
+    def build_circuit(self,num_weights : int,num_input : int,num_qubits : int = 3):
+        qc = QuantumCircuit(num_qubits)
+        weight_params = [Parameter('w{}'.format(i)) for i in range(num_weights)]
+        input_params = [Parameter('x{}'.format(i)) for i in range(num_input)]
+        for i in range(num_qubits):
+            qc.h(i)
+        q_index = 0
+        for i in range(0,num_input,3):
+            qc.rz(input_params[i],q_index)
+            if i+1 < num_input:
+                qc.ry(input_params[i+1],q_index)
+            if i+2 < num_input:
+                qc.rz(input_params[i+2],q_index)
+            q_index += 1
+            if q_index == num_qubits:
+                q_index = 0
+                for j in range(num_qubits):
+                    qc.cx(j, (j + 1)%num_qubits)
 
+        for i in range(0,num_weights,3):
+            #check if i+1 and i+2 is out of range
+            qc.rz(weight_params[i],q_index)
+            if i+1 < num_weights:
+                qc.ry(weight_params[i+1],q_index)
+            if i+2 < num_weights:
+                qc.rz(weight_params[i+2],q_index)
+            q_index += 1
+            if q_index == num_qubits:
+                q_index = 0
+                for j in range(num_qubits):
+                    qc.cx(j, (j + 1)%num_qubits)
+        
+        if q_index != 0:
+            for i in range(q_index,num_qubits):
+                qc.cx(i, (i + 1)%num_qubits)
+        # #entangle the qubits
+        # for i in range(num_qubits):
+        #     qc.cx(i, (i + 1)%num_qubits)
+        print(qc)
+        return qc, weight_params, input_params
     
-class HybridQNN_T(nn.Module):
+class HybridQNN(nn.Module):
     '''
     A hybrid quantum convolutional neural network
     constucted by a classical convolutional layer and a quantum convolutional layer
     '''
     def __init__(self):
-        super(HybridQNN_T, self).__init__()
+        super(HybridQNN, self).__init__()
         #build a full classical convolutional layer
         '''
         write the layer needed for the model
         '''
-        self.conv1 = nn.Conv2d(1, 1, 3).eval()
-        self.bn1 = nn.BatchNorm2d(1).eval()
-        self.sigmoid = nn.Sigmoid().eval()
-        self.maxpool1 = nn.MaxPool2d(2).eval()
-        self.conv2 = MyQuanv2d(1, 2, 3, 9,kernel_size=3,stride=2).eval()
+        self.conv1 = nn.Conv2d(1, 1, 3)
+        self.bn1 = nn.BatchNorm2d(1)
+        self.sigmoid = nn.Sigmoid()
+        self.maxpool1 = nn.MaxPool2d(2)
+        self.conv2 = nn.Conv2d(1, 2, 3, 3)
         self.bn2 = nn.BatchNorm2d(2)
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(72, 10)
+        self.linear = nn.Linear(32, 10)
         # self.linear2 = nn.Linear(50, 10)
 
     def forward(self, x: torch.Tensor)-> torch.Tensor:
@@ -63,12 +107,11 @@ class HybridQNN_T(nn.Module):
             (linear): Linear(in_features=32, out_features=10, bias=True)
         )
         '''
-        with torch.no_grad():
-            x = self.conv1(x)
-            x = self.bn1(x)
-            x = self.sigmoid(x)
-            x = self.maxpool1(x)
-            x = self.conv2(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.sigmoid(x)
+        x = self.maxpool1(x)
+        x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu2(x)
         x = self.flatten(x)
@@ -238,12 +281,11 @@ def Train_Hybrid_QNN(Net : nn.Module,
     defaule_kwargs = {'legnth':500,
                       'batch_size':50,
                       'epochs':10,
-                      'model_name':'HybridQNN_T',
+                      'model_name':'HybridQNN',
                       'model_path':'model.pt',
                       'learning_rate':0.01,
                       'mode':'new_model',
-                      'seed':0,
-                      'old_model_name':'HybridQNN'}
+                      'seed':0}
     
     for key in kwargs:
         if key in defaule_kwargs:
@@ -258,8 +300,6 @@ def Train_Hybrid_QNN(Net : nn.Module,
     model_path = defaule_kwargs['model_path']
     learning_rate = defaule_kwargs['learning_rate']
     mode = defaule_kwargs['mode']
-    seed = defaule_kwargs['seed']
-    old_model_name = defaule_kwargs['old_model_name']
 
     torch.manual_seed(seed)
     #make directory
@@ -302,37 +342,8 @@ def Train_Hybrid_QNN(Net : nn.Module,
                 pass
             else:
                 raise ValueError('invalid input')
-            
 
-    model_old = HybridQNN()
-    model_old.load_state_dict(torch.load(f'data/{old_model_name}/model.pt'))
-    #read old model's weights
-    old_weight = []
-    for name, param in model_old.named_parameters():
-        # do not save the weight of the classical Linear layer
-        # print(name)
-        if 'weight' in name:
-            if 'linear' in name:
-                pass
-            else:
-                old_weight.append((name,param.data))
-    
-    print(old_weight)
-    
-    #set the weight of the new model
-    for name, param in model.named_parameters():
-        if 'weight' in name or 'bias' in name:
-            if 'linear' in name:
-                pass
-            if 'bn2' in name:
-                pass
-            else:
-                for old_name, old_param in old_weight:
-                    if name == old_name:
-                        param.data = old_param
-                        #set the requires_grad to False
-                        param.requires_grad = False
-    
+    print(model)
 
     # Define the optimizer and loss function
     optimizer = optimizer(model.parameters(), lr=learning_rate)
@@ -363,7 +374,6 @@ def Train_Hybrid_QNN(Net : nn.Module,
     plot_confusion_matrix(CM.numpy(),classes=range(CM.shape[0]),normalize=True)
     plt.savefig(f'data/{model_name}/confusion_matrix.png')
     plt.clf()
-
     plt.figure(figsize=(5,5))
     #plot the loss and accuracy
     plt.plot(results['train_loss'],label='train_loss')
@@ -380,19 +390,16 @@ def Train_Hybrid_QNN(Net : nn.Module,
     plt.clf()
 
 
-
-
 if __name__ == '__main__':
     #some hyperparameters
     legnth = 500
     batch_size = 50
-    epochs = 10
-    model_name = 'HybridQNN_T'
+    epochs = 15
+    model_name = 'CNN'
     model_path = 'model.pt'
     learning_rate = 0.01
-    mode = 'old_model'
+    mode = 'new_model'
     seed = 0
-    old_model_name = 'HybridQNN'
     # Load the MNIST dataset
     train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
         transforms.ToTensor(),
@@ -404,8 +411,7 @@ if __name__ == '__main__':
     ]))
     optimizer = optim.Adam
     criterion = nn.CrossEntropyLoss()
-    Net = HybridQNN_T
+    Net = HybridQNN
     Train_Hybrid_QNN(Net,optimizer,criterion,train_dataset,test_dataset,
                      legnth=legnth,batch_size=batch_size,epochs=epochs,
-                     model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed
-                     ,old_model_name=old_model_name)
+                     model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed)

@@ -394,7 +394,7 @@ if __name__ == '__main__':
     model_name = 'HybridQNN_T'
     model_path = 'model.pt'
     learning_rate = 0.01
-    mode = 'new_model'
+    mode = 'old_model'
     seed = 0
     old_model_name = 'HybridQNN'
     # Load the MNIST dataset

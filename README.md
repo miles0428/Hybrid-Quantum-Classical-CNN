@@ -1,4 +1,4 @@
-# QuantumConvolutionNeuralNetwork
+# Quantum Convolution Neural Network
 ![Static Badge](https://img.shields.io/badge/Python-blue)
 ![Static Badge](https://img.shields.io/badge/PyTorch-red)
 ![Static Badge](https://img.shields.io/badge/Qiskit-orange)

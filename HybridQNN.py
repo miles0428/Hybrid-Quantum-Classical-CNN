@@ -394,7 +394,7 @@ if __name__ == '__main__':
     #some hyperparameters
     legnth = 500
     batch_size = 50
-    epochs = 10
+    epochs = 5
     model_name = 'HybridQNN_CIFAR'
     model_path = 'model.pt'
     learning_rate = 0.01

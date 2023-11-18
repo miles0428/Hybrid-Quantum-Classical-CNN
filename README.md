@@ -196,14 +196,14 @@ Before running the code in this repository, you will need to set up your environ
     This will install all the necessary packages, including PyTorch, qiskit, and matplotlib.
 
 3. Hardware
-   :::
+   ```
 裝置名稱	LAPTOP-DD0B27NS
 處理器	12th Gen Intel(R) Core(TM) i7-12700H   2.70 GHz
 已安裝記憶體(RAM)	16.0 GB (15.7 GB 可用)
 裝置識別碼	8EE4B007-76AD-48E2-BEE7-4C52DA6633A0
 產品識別碼	00342-20873-64186-AAOEM
 系統類型	64 位元作業系統，x64 型處理器
-   :::
+   ```
 
 ## License Information
 

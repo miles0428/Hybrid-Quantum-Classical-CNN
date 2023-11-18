@@ -6,7 +6,6 @@
 ![Static Badge](https://img.shields.io/badge/Quantum_Convolution-yellow)
 ![Static Badge](https://img.shields.io/badge/windows_11-navy)
 ![Static Badge](https://img.shields.io/badge/ubuntu_23.04-orange)
-
 ![Static Badge](https://img.shields.io/badge/mac-gray)
 
 

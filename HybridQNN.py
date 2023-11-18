@@ -307,8 +307,8 @@ def Train_Hybrid_QNN(Net : nn.Module,
     #load data
     train_dataset.data = train_dataset.data[:legnth]
     train_dataset.targets = train_dataset.targets[:legnth]
-    test_dataset.data = test_dataset.data[:int(legnth/2)]
-    test_dataset.targets = test_dataset.targets[:int(legnth/2)]
+    test_dataset.data = test_dataset.data[:int(legnth/5.1)]
+    test_dataset.targets = test_dataset.targets[:int(legnth/5.1)]
 
     # Create the data loaders
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     legnth = 500
     batch_size = 50
     epochs = 10
-    model_name = 'HybridQNN'
+    model_name = 'HybridQNN_CIFAR'
     model_path = 'model.pt'
     learning_rate = 0.01
     mode = 'new_model'
@@ -423,10 +423,15 @@ if __name__ == '__main__':
     test_dataset.targets = np.array(test_dataset.targets)
     train_dataset.data = train_dataset.data[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
     train_dataset.targets = train_dataset.targets[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
-    train_dataset.targets = np.where(train_dataset.targets == 3,0,1)
     test_dataset.data = test_dataset.data[np.where((test_dataset.targets == 3) | (test_dataset.targets == 88))]
     test_dataset.targets = test_dataset.targets[np.where((test_dataset.targets == 3) | (test_dataset.targets == 88))]
-    test_dataset.targets = np.where(test_dataset.targets == 3,0,1)
+    #change the dataset to Cifar100 class 3 and 88
+    train_dataset.targets = np.where(train_dataset.targets == 3,0,train_dataset.targets)
+    train_dataset.targets = np.where(train_dataset.targets == 88,1,train_dataset.targets)
+    test_dataset.targets = np.where(test_dataset.targets == 3,0,test_dataset.targets)
+    test_dataset.targets = np.where(test_dataset.targets == 88,1,test_dataset.targets)
+    print(len(train_dataset))
+    print(len(test_dataset))
     optimizer = optim.Adam
     criterion = nn.CrossEntropyLoss()
     Net = HybridQNN

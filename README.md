@@ -181,7 +181,7 @@ Before running the code in this repository, you will need to set up your environ
     git clone https://github.com/miles0428/Hackthon-NCCU-2023.git
     ```
 
-2. Install the required packages using pip:
+2. Install the required packages using pip (and the version):
 
     ```bash
     pip install -r requirements.txt

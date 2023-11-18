@@ -383,7 +383,7 @@ def Train_Hybrid_QNN(Net : nn.Module,
 
 if __name__ == '__main__':
     #some hyperparameters
-    legnth = 500
+    legnth = 1000
     batch_size = 50
     epochs = 10
     model_name = 'HybridQNN_T_CIFAR'

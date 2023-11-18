@@ -1,9 +1,10 @@
-torch 
-qiskit 
-matplotlib 
-numpy
-qiskit_machine_learning
-torchvision
-tqdm
-qiskit-aer
-sparse
+//the packages and tools we had used.(version)
+torch (2.1.0)
+qiskit (0.45.0)
+matplotlib (3.8.1)
+numpy (1.26.2)
+qiskit_machine_learning (0.7.0)
+torchvision (0.16.0)
+tqdm (4.66.1)
+qiskit-terra (0.45.0)
+sparse (0.14.0)

@@ -409,6 +409,8 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
+    train_dataset.targets = np.array(train_dataset.targets)
+    test_dataset.targets = np.array(test_dataset.targets)
     train_dataset.data = train_dataset.data[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
     train_dataset.targets = train_dataset.targets[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
     test_dataset.data = test_dataset.data[np.where((test_dataset.targets == 3) | (test_dataset.targets == 88))]

@@ -69,7 +69,7 @@ class HybridQNN(nn.Module):
         '''
         write the layer needed for the model
         '''
-        self.conv1 = nn.Conv2d(1, 1, 3)
+        self.conv1 = nn.Conv2d(3, 1, 3)
         self.bn1 = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
         self.maxpool1 = nn.MaxPool2d(2)
@@ -78,7 +78,7 @@ class HybridQNN(nn.Module):
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(32, 10)
+        self.linear = nn.Linear(50, 2)
         # self.linear2 = nn.Linear(50, 10)
 
     def forward(self, x: torch.Tensor)-> torch.Tensor:
@@ -394,24 +394,42 @@ if __name__ == '__main__':
     #some hyperparameters
     legnth = 500
     batch_size = 50
-    epochs = 0
+    epochs = 10
     model_name = 'HybridQNN'
     model_path = 'model.pt'
     learning_rate = 0.01
-    mode = 'old_model'
-    seed = 0
+    mode = 'new_model'
+    seed = 999
     # Load the MNIST dataset
-    train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
+    # train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.Normalize((0.1307,), (0.3081,))
+    # ]))
+    # test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.Normalize((0.1307,), (0.3081,))
+    # ]))
+    #change the dataset to Cifar100 class 3 and 88
+    train_dataset = datasets.CIFAR100('./data', train=True, download=True, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
-    test_dataset = datasets.MNIST('./data', train=False, download=True, transform=transforms.Compose([
+    test_dataset = datasets.CIFAR100('./data', train=False, download=True, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
+    #filter the dataset to class 3 and 88
+    train_dataset.targets = np.array(train_dataset.targets)
+    test_dataset.targets = np.array(test_dataset.targets)
+    train_dataset.data = train_dataset.data[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
+    train_dataset.targets = train_dataset.targets[np.where((train_dataset.targets == 3) | (train_dataset.targets == 88))]
+    #change the label to 0 and 1
+    train_dataset.targets = np.where(train_dataset.targets == 3,0,1)
+    test_dataset.data = test_dataset.data[np.where((test_dataset.targets == 3) | (test_dataset.targets == 88))]
     optimizer = optim.Adam
     criterion = nn.CrossEntropyLoss()
     Net = HybridQNN
     Train_Hybrid_QNN(Net,optimizer,criterion,train_dataset,test_dataset,
                      legnth=legnth,batch_size=batch_size,epochs=epochs,
                      model_name=model_name,model_path=model_path,learning_rate=learning_rate,mode=mode,seed=seed)
+

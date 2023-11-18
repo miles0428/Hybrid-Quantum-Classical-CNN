@@ -34,7 +34,7 @@ class HybridQNN_T(nn.Module):
         self.relu2 = nn.ReLU()
         self.maxpool2 = nn.MaxPool2d(2)
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(72, 10)
+        self.linear = nn.Linear(98, 10)
         # self.linear2 = nn.Linear(50, 10)
 
     def forward(self, x: torch.Tensor)-> torch.Tensor:

@@ -284,7 +284,7 @@ def Train_Hybrid_QNN(Net : nn.Module,
         #load results
         results = torch.load(f'data/{model_name}/results.pt')
     else:
-        results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[],'best_loss':1e5}
+        results = {'train_loss':[],'train_accu':[],'test_loss':[],'test_accu':[],'best_loss':1e5,'best_accu':0}
         #check if the model exists
         if os.path.exists(f'data/{model_name}/{model_path}'):
             check = input('model exists, press enter to overwrite(y/n)')
@@ -346,8 +346,9 @@ def Train_Hybrid_QNN(Net : nn.Module,
             results['train_accu'].append(train_accu)
             results['test_loss'].append(test_loss)
             results['test_accu'].append(accuracy)
-            if test_loss < results['best_loss']:
+            if accuracy > results['best_accu']:
                 results['best_loss'] = test_loss
+                results['best_accu'] = accuracy
                 #save the model for future use
                 torch.save(model.state_dict(), f'data/{model_name}/{model_path}')
             #save results

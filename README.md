@@ -4,6 +4,12 @@
 ![Static Badge](https://img.shields.io/badge/Qiskit-orange)
 ![Static Badge](https://img.shields.io/badge/QML-yellow)
 ![Static Badge](https://img.shields.io/badge/Quantum_Convolution-yellow)
+![Static Badge](https://img.shields.io/badge/windows_11-navy)
+![Static Badge](https://img.shields.io/badge/ubuntu_23.04-orange)
+
+![Static Badge](https://img.shields.io/badge/mac-gray)
+
+
 
 Hackathon NCCU 2023
 
